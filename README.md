@@ -1,14 +1,11 @@
 # Vehicle management
  
-Transport authorities are digitising their operations. They need a system where vehicles can be registered with details such as licence plate number, owner's name and vehicle type. In addition, they want to integrate licence plate recognition to monitor vehicles entering and exiting major urban junctions.
+The traffic department wants to automate the process of detecting traffic violations, such as speeding, illegal parking or running red lights. Once a violation is detected, the system should issue a ticket to the vehicle owner based on the type of violation.
 
-I start by defining a use case diagram, a sequence diagram for each use case, and a class diagram. Then, I will use them to create the following processes.
+Implement procedures to detect different types of traffic violations 
 
--Registering new vehicles in the system
+Automatically impose fines based on the type and severity of the violation.
 
--Identify and record licence plates at city intersections.
+ Key point: The system should distinguish between different types of violations and have different configurable actions for each type. Consider implementing functionality to notify vehicle owners via email, assuming that email addresses exist in a given dataset.
 
--For simplicity, it is assumed that the vehicle number plates will be provided to the program through a manually populated PostgreSQL server.
-
--Use this resource to see various examples: Regtransfers UK
 
