@@ -16,12 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from vehicle.views import PlateRegistration, IdentfitionRecord, UserRegistration,Violation
+from vehicle.views import PlateRegistration, IdentfitionRecord, UserRegistration,Violation,AreaCondition,jump_years,jump_years1
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('plate/', PlateRegistration.as_view()),
     path('user/', UserRegistration.as_view()),
     path('record/', IdentfitionRecord.as_view()),
-    path('violation/', Violation.as_view())
+    path('violation/', Violation.as_view()),
+    path('areacondition/',AreaCondition.as_view(),name='areacondition'),
+    path('areacondition/show_years/', jump_years, name="show_years"),
+    path('areacondition/show_years1/', jump_years1, name="show_years1")
 ]

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>车牌注册</h1>
+
+    <form action="/plate/" method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label>user_id</label>
+            <input type="text" name="user_id" class="form-control">
+            <small class="form-text text-muted"></small>
+        </div>
+        
+        <div>
+            <label for="plate-select">选择车牌号:</label>
+            <select id="plate-select" name="vehicle_plate">
+            {% for plate in plates %}
+                <option value="{{ plate.plate_id }}">{{ plate.plate_number }}</option>
+            {% endfor %}
+        </select>
+        </div>
+        <button type="submit">注册</button>
+    </form>
+</body>
+</html>

@@ -1,10 +1,15 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
-from .models import Plate, User, Vehicle, Record
+from .models import Plate, User, Vehicle, Record,Area
 from .serializers import PlateSerializer, UserSerializer, VehicleSerializer, RecordSerializer,TrafficviolationsSerializer
 from rest_framework.response import Response
 from django.core.mail import send_mail
 from django11 import settings
+from pyecharts.charts import Line
+import pandas as pd
+from statsmodels.tsa.arima.model import ARIMA
+from django.http import HttpResponse
+from django.views.decorators.clickjacking import xframe_options_exempt
 
 # Create your views here.
 
@@ -27,31 +32,19 @@ class Stact():
         self.code = 400
         return {'msg': self.msg, 'data': self.data, 'code': self.code}
 
-'''
-INSERT INTO vehicle_plate (plate_number, plate_price, plate_status) VALUES ('京A12345', 10000.00, False);
-INSERT INTO vehicle_plate (plate_number, plate_price, plate_status) VALUES ('沪B67890', 15000.00, False);
-INSERT INTO vehicle_plate (plate_number, plate_price, plate_status) VALUES ('粤C23456', 12000.00, False);
-INSERT INTO vehicle_plate (plate_number, plate_price, plate_status) VALUES ('陕D78901', 8000.00, False);
-INSERT INTO vehicle_plate (plate_number, plate_price, plate_status) VALUES ('浙E45678', 20000.00, False);
-INSERT INTO vehicle_plate (plate_number, plate_price, plate_status) VALUES ('鲁F90123', 11000.00, False);
-INSERT INTO vehicle_plate (plate_number, plate_price, plate_status) VALUES ('豫G67890', 9000.00, False);
-INSERT INTO vehicle_plate (plate_number, plate_price, plate_status) VALUES ('苏H12345', 18000.00, False);
-INSERT INTO vehicle_plate (plate_number, plate_price, plate_status) VALUES ('冀J67890', 14000.00, False);
-INSERT INTO vehicle_plate (plate_number, plate_price, plate_status) VALUES ('湘K23456', 16000.00, False);
 
-'''
 class PlateRegistration(APIView):
     def get(self, request):
-        # Returns licence plate numbers whose status is not 0
+        #Returns the licence plate number whose status is not 0
         plates = Plate.objects.filter(plate_status=0)
         s = PlateSerializer(plates, many=True)
         return render(request, 'plate.html', {'plates': s.data})
     
     def post(self, request):
-        #Registered Vehicle Registration Numbers
+        #Registered Vehicle Registration Number
         s = VehicleSerializer(data=request.data)
         if s.is_valid():
-            #Change the plate meter licence plate number status to 1 after successful registration
+            #After successful registration, change the status of the plate list licence plate number to 1
             plate = Plate.objects.get(plate_id=request.data['vehicle_plate'])
             plate.plate_status = 1
             plate.save()
@@ -77,14 +70,16 @@ class IdentfitionRecord(APIView):
     def get(self, request):
         return render(request, 'record.html')
 
-    #Identify and record licence plate numbers
+    #Recognition and recording of licence plate numbers
     def post(self, request):
-        # Print the data from the Vehicle table
+        #Printing data from the Vehicle table
         plate_ids = list(Plate.objects.filter(plate_number=request.data['vehicle_plate']).values_list('plate_id', flat=True))
         mutable_data = Vehicle.objects.filter(vehicle_plate__in=plate_ids).first()
+        area_id = Area.objects.get(area_name=request.data['area_name']).area_id
 
         if mutable_data:
             record_data = {
+                'area_id': area_id,
                 'vehicle_id': mutable_data.vehicle_id
             }
             s = RecordSerializer(data=record_data)
@@ -98,10 +93,10 @@ class IdentfitionRecord(APIView):
 
 
 def send_email(violation_type, fine, deduction,mail):
-    subject = f'endorsement: {violation_type}'
-    message = f'You have a new violation: {violation_type}\nfine: {fine}$\ndeduct marks: {deduction}ingredient'
+    subject = f'违章记录: {violation_type}'
+    message = f'您有一条新的违章记录: {violation_type}\n罚款: {fine}元\n扣分: {deduction}分'
     from_email = settings.DEFAULT_FROM_EMAIL
-    recipient_list = ['3037160185@qq.com']
+    recipient_list = [mail]
     send_mail(subject, message, from_email, recipient_list) 
     return True
 
@@ -113,11 +108,11 @@ class Violation(APIView):
         }
         return render(request, 'trafficviolations.html',context=context)
     
-    # Violation records
+    #违章记录
     def post(self, request):
         s = TrafficviolationsSerializer(data=request.data)
         if s.is_valid():
-            #Send to user's mailbox, change email_status to 1 after successful sending, send different emails according to the type of violation and the level of violation, minor penalty 500 RMB deduction of 3 points, serious penalty 1,000 RMB deduction of 6 points, very serious penalty 2,000 RMB deduction of 12 points, if the user's credit score is less than 60 points, then delete the user
+            #发送给用户邮箱，发送成功后将email_status改为1 ，根据违章类型和违章等级发送不同的邮件，轻微罚500元扣3分，严重罚1000元扣6分，非常严重罚2000元扣12分，如果用户信用分低于60分，则删除用户
             record = Record.objects.get(record_id=request.data['record_id'])
             user_id = record.vehicle_id.user_id
             user = User.objects.get(user_id=user_id.user_id)
@@ -140,8 +135,75 @@ class Violation(APIView):
             s = TrafficviolationsSerializer(data=mutable_data)
             s.is_valid()
             s.save()
-            return Response(data=Stact().succeed('Recording Success'),status=200)
+            return Response(data=Stact().succeed('记录成功'),status=200)
         return Response(data=Stact().error(s.errors),status=400)
-        
+
+
+def send_email1(area_type,time,mail):
+    for i in range(len(mail)):
+        subject = f'尊敬的车主:'
+        message = f'您好，{area_type}地区将在大概{time}时间左右发生堵车，请您绕道而行，谢谢！'
+        from_email = settings.DEFAULT_FROM_EMAIL
+        recipient_list = [mail[i]]
+        send_mail(subject, message, from_email, recipient_list) 
+    return True
+
+
+class AreaCondition(APIView):
+    '''
+    为了优化城市交通,部门希望分析不同时间的车辆流量,并确定容易拥堵的区域。该系统应该提供洞察力,帮助管理和减少交通拥堵。
+
+        建议方法:
+        您应该通过以下方式增强现有系统:
+
+        实现一个功能,分析不同时间通过城市路口的车辆数量
+        根据交通流量数据确定容易拥堵的区域
+        关键点:考虑使用数据可视化工具来表示交通流量和拥堵模式;另外,实现算法来预测拥堵时间,并在检测到拥堵时通过电子邮件向驾驶员建议替代路线
     
+    '''
+    def get(self, request):
+        #Plot the number of records per day per region, return the chart
+        area = Area.objects.all()
+        line = Line()
+        mail = User.objects.all().values_list('user_email', flat=True)
+        for i in area:
+            record = list(Record.objects.filter(area_id=i.area_id).values())
+            record = pd.DataFrame(record)
+            record['record_date'] = pd.to_datetime(record['record_date'])
+            record = record.groupby(record['record_date'].dt.hour).count()
+            line.add_xaxis(record.index.astype(str).to_list())
+            model = ARIMA(record['record_id'], order=(5,1,0))
+            model_fit = model.fit()
+            forecast = model_fit.forecast(steps=5).tolist()
+            for j in range(len(forecast)):
+                if forecast[j] > 100:
+                    send_email1(i.area_name, j+1, mail)
+            line.add_yaxis(i.area_name, record['record_id'].to_list())
+        line.page_title = 'vehicular traffic'
+        line.render('./templates/line.html')
+
+        line2 = Line()
+        record = list(Record.objects.all().values())
+        record = pd.DataFrame(record)
+        record['record_date'] = pd.to_datetime(record['record_date'])
+        record = record.groupby(record['record_date'].dt.hour).count()
+        line2.add_xaxis(record.index.astype(str).to_list())
+        line2.add_yaxis('whole city', record['record_id'].to_list())
+        line2.page_title = 'Vehicle flow throughout the city'
+        line2.render('./templates/line2.html')
+        return render(request, 'area.html')
+    
+@xframe_options_exempt    
+def jump_years(request):
+    """
+    跳转可视化
+    """
+    return render(request, 'line.html', {})
+
+@xframe_options_exempt    
+def jump_years1(request):
+    """
+    跳转可视化
+    """
+    return render(request, 'line2.html', {})
 

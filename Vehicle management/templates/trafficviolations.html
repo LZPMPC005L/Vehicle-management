@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>交通检测</h1>
+    <form action="/violation/" method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label>record_id</label>
+            <input type="text" name="record_id" class="form-control">
+            <small class="form-text text-muted"></small>
+        </div>
+        <div>
+            <label for="plate-select">violation_id</label>
+            <select id="plate-select" name="violation_id">
+            {% for id in range_3 %}
+                <option value="{{ id }}">{{ id }}</option>
+            {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="plate-select">violation_level</label>
+            <select id="plate-select" name="violation_level">
+            {% for level in range_3 %}
+                <option value="{{ level }}">{{ level }}</option>
+            {% endfor %}
+            </select>
+        </div>
+        <button type="submit">提交</button>
+    </form>
+</body>
+</html>
