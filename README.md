@@ -6,7 +6,7 @@ Implementing a function to analyse the number of vehicles passing through a city
 
 Identify areas prone to congestion based on traffic flow data.
 
-Key point: consider using data visualisation tools to represent traffic flows and congestion patterns.In addition, implement algorithms to predict congestion times and suggest alternative routes to drivers via email when congestion is detected.
+
 
 
 
