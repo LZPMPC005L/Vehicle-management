@@ -6,6 +6,7 @@ Implementing a function to analyse the number of vehicles passing through a city
 
 Identify areas prone to congestion based on traffic flow data.
 
+There exists a RECORD function in this system to record the licence plate number and then send email notifications to other drivers once a particular vehicle like 120 is spotted at a particular intersection. Once a special vehicle like the 120 is spotted at a certain intersection, an email notification is sent to other drivers.
 
 
 
