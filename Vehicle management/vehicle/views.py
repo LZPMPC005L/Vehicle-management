@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
-from .models import Plate, User, Vehicle, Record,Area
+from .models import Plate, User, Vehicle, Record,Area,Emergency
 from .serializers import PlateSerializer, UserSerializer, VehicleSerializer, RecordSerializer,TrafficviolationsSerializer
 from rest_framework.response import Response
 from django.core.mail import send_mail
@@ -65,6 +65,28 @@ class UserRegistration(APIView):
             return Response(data=Stact().succeed('Successful registration'),status=200)
         return Response(data=Stact().error(s.errors),status=400)
 
+'''
+    In emergency situations, it is vital that vehicles such as ambulances, fire engines and police vehicles be given priority. The system should detect emergency vehicles and provide them with a clear route, possibly by controlling traffic lights or notifying other drivers.
+
+    Suggested Approach.
+    You should enhance your existing system by.
+    I Implementing a procedure for detecting and prioritising emergency vehicles at urban intersections
+    I Designing a function to control traffic signals or send yield notifications to other drivers.
+
+    Key point: For simplicity, use email notifications in this scenario, but explore other real-time notification avenues; also, ensure that the system is able to differentiate between emergency vehicles and regular traffic.
+
+
+'''
+def send_email2(area_type,emergency_type,mail):
+    for i in range(len(mail)):
+        subject = f'emergency notice:'
+        message = f'Hello, there is an emergency in the area of {area_type}, please give way to {emergency_type} vehicles in the vicinity, thank you.！'
+        from_email = settings.DEFAULT_FROM_EMAIL
+        recipient_list = [mail[i]]
+        send_mail(subject, message, from_email, recipient_list) 
+    return True
+
+
 
 class IdentfitionRecord(APIView):
     def get(self, request):
@@ -73,28 +95,45 @@ class IdentfitionRecord(APIView):
     #Recognition and recording of licence plate numbers
     def post(self, request):
         #Printing data from the Vehicle table
-        plate_ids = list(Plate.objects.filter(plate_number=request.data['vehicle_plate']).values_list('plate_id', flat=True))
-        mutable_data = Vehicle.objects.filter(vehicle_plate__in=plate_ids).first()
-        area_id = Area.objects.get(area_name=request.data['area_name']).area_id
 
-        if mutable_data:
+        if Emergency.objects.filter(emergency_type=request.data['vehicle_plate']).exists():
+            emergency = Emergency.objects.get(emergency_type=request.data['vehicle_plate'])
+            area_id = Area.objects.get(area_name=request.data['area_name']).area_id
+            mail = User.objects.all().values_list('user_email', flat=True)
+            send_email2(request.data['area_name'], request.data['vehicle_plate'], mail)
             record_data = {
                 'area_id': area_id,
-                'vehicle_id': mutable_data.vehicle_id
+                'vehicle_id': emergency.emergency_id
             }
             s = RecordSerializer(data=record_data)
             if s.is_valid():
                 s.save()
                 return Response(data=Stact().succeed('Recording Success'), status=200)
             return Response(data=Stact().error(s.errors), status=400)
+
         else:
-            return Response(data=Stact().error('Invalid licence plate numbers'), status=400)
+            plate_ids = list(Plate.objects.filter(plate_number=request.data['vehicle_plate']).values_list('plate_id', flat=True))
+            mutable_data = Vehicle.objects.filter(vehicle_plate__in=plate_ids).first()
+            area_id = Area.objects.get(area_name=request.data['area_name']).area_id
+
+            if mutable_data:
+                record_data = {
+                    'area_id': area_id,
+                    'vehicle_id': mutable_data.vehicle_id
+                }
+                s = RecordSerializer(data=record_data)
+                if s.is_valid():
+                    s.save()
+                    return Response(data=Stact().succeed('Recording Success'), status=200)
+                return Response(data=Stact().error(s.errors), status=400)
+            else:
+                return Response(data=Stact().error('Invalid licence plate numbers'), status=400)
 
 
 
 def send_email(violation_type, fine, deduction,mail):
-    subject = f'违章记录: {violation_type}'
-    message = f'您有一条新的违章记录: {violation_type}\n罚款: {fine}元\n扣分: {deduction}分'
+    subject = f'v: {violation_type}'
+    message = f'You have one new violation: {violation_type}\nFine: {fine}$\nPoints: {deduction}points'
     from_email = settings.DEFAULT_FROM_EMAIL
     recipient_list = [mail]
     send_mail(subject, message, from_email, recipient_list) 
@@ -108,11 +147,11 @@ class Violation(APIView):
         }
         return render(request, 'trafficviolations.html',context=context)
     
-    #违章记录
+    #endorsement
     def post(self, request):
         s = TrafficviolationsSerializer(data=request.data)
         if s.is_valid():
-            #发送给用户邮箱，发送成功后将email_status改为1 ，根据违章类型和违章等级发送不同的邮件，轻微罚500元扣3分，严重罚1000元扣6分，非常严重罚2000元扣12分，如果用户信用分低于60分，则删除用户
+            #Send to the user's email address, after sending successfully change email_status to 1 , according to the type of violation and violation level send different emails, minor penalty 500 yuan deduction of 3 points, serious penalty 1,000 yuan deduction of 6 points, a very serious penalty of 2,000 yuan deduction of 12 points, if the user's credit score is less than 60 points, delete the user
             record = Record.objects.get(record_id=request.data['record_id'])
             user_id = record.vehicle_id.user_id
             user = User.objects.get(user_id=user_id.user_id)
@@ -135,14 +174,14 @@ class Violation(APIView):
             s = TrafficviolationsSerializer(data=mutable_data)
             s.is_valid()
             s.save()
-            return Response(data=Stact().succeed('记录成功'),status=200)
+            return Response(data=Stact().succeed('Recording Success'),status=200)
         return Response(data=Stact().error(s.errors),status=400)
 
 
 def send_email1(area_type,time,mail):
     for i in range(len(mail)):
-        subject = f'尊敬的车主:'
-        message = f'您好，{area_type}地区将在大概{time}时间左右发生堵车，请您绕道而行，谢谢！'
+        subject = f'Honourable owners:'
+        message = f'Hello, there will be a traffic jam in the {area_type} area around {time}, please take a detour, thank you!！'
         from_email = settings.DEFAULT_FROM_EMAIL
         recipient_list = [mail[i]]
         send_mail(subject, message, from_email, recipient_list) 
@@ -151,14 +190,16 @@ def send_email1(area_type,time,mail):
 
 class AreaCondition(APIView):
     '''
-    为了优化城市交通,部门希望分析不同时间的车辆流量,并确定容易拥堵的区域。该系统应该提供洞察力,帮助管理和减少交通拥堵。
+    In order to optimise urban traffic, the department would like to analyse the flow of vehicles at different times of the day and identify areas prone to congestion. The system should provide insights to help manage and reduce traffic congestion.
 
-        建议方法:
-        您应该通过以下方式增强现有系统:
+        Suggested Approach.
+        You should enhance the existing system by.
 
-        实现一个功能,分析不同时间通过城市路口的车辆数量
-        根据交通流量数据确定容易拥堵的区域
-        关键点:考虑使用数据可视化工具来表示交通流量和拥堵模式;另外,实现算法来预测拥堵时间,并在检测到拥堵时通过电子邮件向驾驶员建议替代路线
+        Implementing a function that analyses the number of vehicles passing through a city junction at different times of day
+        Identify congestion-prone areas based on traffic flow data.
+        Key point: Consider using data visualisation tools to represent traffic flows and congestion patterns; in addition, implement algorithms to predict congestion times and suggest alternative routes to drivers via email when congestion is detected.
+
+
     
     '''
     def get(self, request):
@@ -196,14 +237,14 @@ class AreaCondition(APIView):
 @xframe_options_exempt    
 def jump_years(request):
     """
-    跳转可视化
+    Jump Visualisation
     """
     return render(request, 'line.html', {})
 
 @xframe_options_exempt    
 def jump_years1(request):
     """
-    跳转可视化
+    Jump Visualisation
     """
     return render(request, 'line2.html', {})
 
